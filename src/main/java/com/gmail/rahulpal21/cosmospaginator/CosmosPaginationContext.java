@@ -1,3 +1,5 @@
+package com.gmail.rahulpal21.cosmospaginator;
+
 import java.util.stream.Stream;
 
 /// @author Rahul Pal
