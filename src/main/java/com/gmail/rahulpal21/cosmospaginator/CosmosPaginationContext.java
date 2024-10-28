@@ -10,9 +10,9 @@ public interface CosmosPaginationContext<T> {
     ///@return true if more pages exist in backward direction
     boolean hasPrev();
     ///@return A [java.util.stream] instance to consume elements of type [T] from the returned page
-    Stream<T> getNextPage();
+    Stream<? super T> getNextPage();
     ///@return A [java.util.stream] instance to consume elements of type [T] from the returned page
-    Stream<T> getPrevPage();
+    Stream<? super T> getPrevPage();
     ///@return Total number of pages
     long getPageCount();
     /// Resets the context to first page
