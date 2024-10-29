@@ -1,42 +1,59 @@
 package com.gmail.rahulpal21.cache;
 
 import com.google.common.reflect.TypeToken;
+
 import java.lang.reflect.Array;
 
-public class PaginationRingBuffer<T> {
+public class PaginationRingBuffer<T> implements IPaginationRingBuffer<T> {
     private final T[] ringBuffer;
-    Class<? super T> type = new TypeToken<T>() {}.getRawType();
+    Class<? super T> type = new TypeToken<T>(getClass()) {
+    }.getRawType();
     private final int length;
     private int cursor;
     private int head;
 
     public PaginationRingBuffer(int length) {
-        this.length = length;
-        ringBuffer = (T[]) Array.newInstance(type, this.length);
+        this.ringBuffer = (T[]) Array.newInstance(type, length);
+        this.length = ringBuffer.length;
+        this.cursor = 0;
+        this.head = 0;
     }
 
-    public T offerNext(){
+    @Override
+    public T offerNext(T element) {
+        ringBuffer[cursor] = element;
+
         return null;
     }
 
-    public T offerPrev(){
+    @Override
+    public T offerPrev(T element) {
         return null;
     }
 
-    public T peekNext(){
+    @Override
+    public T peekNext() {
         return null;
     }
 
-    public T peekPrev(){
+    @Override
+    public T peekPrev() {
         return null;
     }
 
-    public T readNext(){
+    @Override
+    public T readNext() {
         return null;
     }
 
-    public T readPrev(){
+    @Override
+    public T readPrev() {
         return null;
+    }
+
+    @Override
+    public int getLength() {
+        return ringBuffer.length;
     }
 
 }
