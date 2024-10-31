@@ -1,3 +1,4 @@
+import com.gmail.rahulpal21.cache.AllPagesNotReadException;
 import com.gmail.rahulpal21.cache.IPaginationRingBuffer;
 import com.gmail.rahulpal21.cache.PaginationRingBuffer;
 import org.junit.jupiter.api.*;
@@ -39,7 +40,11 @@ public class PaginationRingBufferTests {
         String entry4 = "Fourth";
         String entry5 = "Fifth";
 
-        subject.offerNext("First");
+        try {
+            subject.offerNext(entry1);
+        } catch (AllPagesNotReadException e) {
+            throw new RuntimeException(e);
+        }
         assertEquals(entry1, subject.peekPrev());
         assertNull(subject.peekNext());
         assertEquals(entry1, subject.readPrev());
@@ -48,4 +53,6 @@ public class PaginationRingBufferTests {
         assertEquals(entry1, subject.peekNext());
         assertEquals(entry1, subject.readNext());
     }
+
+
 }
