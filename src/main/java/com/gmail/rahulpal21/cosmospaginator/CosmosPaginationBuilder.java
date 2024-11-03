@@ -30,7 +30,6 @@ public class CosmosPaginationBuilder<T> {
 
         CosmosPagedIterable<? super T> pagedIterable = container.queryItems(querySpec, new CosmosQueryRequestOptions(), type);
 
-
         return new CosmosPaginationContext<T>() {
             private Iterator<? extends FeedResponse<? super T>> pages = pagedIterable.iterableByPage(pageSize).iterator();
             private EvictingQueue<T[]> ringBuffer = EvictingQueue.create(cacheSize);

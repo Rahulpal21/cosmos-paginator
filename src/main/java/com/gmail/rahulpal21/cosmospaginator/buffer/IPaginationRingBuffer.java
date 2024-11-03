@@ -1,4 +1,4 @@
-package com.gmail.rahulpal21.cache;
+package com.gmail.rahulpal21.cosmospaginator.buffer;
 
 /**
  * TODO explain the high level concept and the allowed navigations with this structure

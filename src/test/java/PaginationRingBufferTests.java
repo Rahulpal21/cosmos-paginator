@@ -1,9 +1,11 @@
-import com.gmail.rahulpal21.cache.AllPagesNotReadException;
-import com.gmail.rahulpal21.cache.IPaginationRingBuffer;
-import com.gmail.rahulpal21.cache.PaginationRingBuffer;
-import org.junit.jupiter.api.*;
+import com.gmail.rahulpal21.cosmospaginator.buffer.AllPagesNotReadException;
+import com.gmail.rahulpal21.cosmospaginator.buffer.IPaginationRingBuffer;
+import com.gmail.rahulpal21.cosmospaginator.buffer.PaginationRingBuffer;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 
 //@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -24,7 +26,6 @@ public class PaginationRingBufferTests {
     }
 
     @Test
-//    @Order(1)
     public void testReadOperationsOnEmptyBuffer() {
         assertNull(buffer.peekNext());
         assertNull(buffer.peekPrev());
@@ -33,8 +34,7 @@ public class PaginationRingBufferTests {
     }
 
     @Test
-//    @Order(2)
-    public void testForwardOperations() {
+    public void testOperationsWithSingleEntry() {
         String entry1 = "First";
 
         try {
@@ -42,67 +42,127 @@ public class PaginationRingBufferTests {
         } catch (AllPagesNotReadException e) {
             throw new RuntimeException(e);
         }
-        assertEquals(entry1, buffer.peekPrev());
-        assertNull(buffer.peekNext());
-        assertEquals(entry1, buffer.readPrev());
         assertNull(buffer.peekPrev());
+        assertNull(buffer.peekNext());
         assertNull(buffer.readPrev());
-        assertEquals(entry1, buffer.peekNext());
-        assertEquals(entry1, buffer.readNext());
+        assertNull(buffer.peekNext());
+
     }
 
     // during offerNext(), head keeps incrementing in forward direction and tail remains fixed at start of array until overflow
     @Test
-//    @Order(3)
     public void testHeadMovesForwardAndTailRemainsFixedUntilOverwriteDuringOfferNext() {
         assertNull(buffer.peekNext());
         assertNull(buffer.peekPrev());
 
-        fill(buffer, 1,9, DATA_PREFIX);
+        fill(buffer, 1, 9, DATA_PREFIX);
         assertNull(buffer.peekNext());
-        for (int i = 9; i > 0; i--) {
+        for (int i = 8; i > 0; i--) {
+            assertEquals(DATA_PREFIX + i, buffer.peekPrev());
             assertEquals(DATA_PREFIX + i, buffer.readPrev());
         }
+        //cursor should be positioned at TAIL at this point
+        assertNull(buffer.peekPrev());
+        assertNull(buffer.readPrev());
+    }
+
+    // during offerNext(), head keeps incrementing in forward direction and tail remains fixed at start of array until overflow
+    @Test
+    public void testForwardWriteTillTheLastElementOfArray() {
+        assertNull(buffer.peekNext());
+        assertNull(buffer.peekPrev());
+
+        fill(buffer, 1, 10, DATA_PREFIX);
+
+        //cursor should be positioned at HEAD at this point
+        assertNull(buffer.peekNext());
+        assertNull(buffer.readNext());
+
+        //backward read should go all the way to the start of the array where TAIL should be positioned
+        for (int i = 9; i > 0; i--) {
+            assertEquals(DATA_PREFIX + i, buffer.peekPrev());
+            assertEquals(DATA_PREFIX + i, buffer.readPrev());
+        }
+        //cursor should be positioned at TAIL at this point
+        assertNull(buffer.peekPrev());
         assertNull(buffer.readPrev());
     }
 
     // peekNext() & readNext() should not read into tail when buffer is full
     @Test
-//    @Order(4)
-    public void testReadForwardOperationsDoNotReadIntoTailWhenBufferIsFull(){
-        fill(buffer,1,10,DATA_PREFIX);
+    public void testReadForwardOperationsDoNotReadIntoTailWhenBufferIsFull() {
+        fill(buffer, 1, 10, DATA_PREFIX);
         assertNull(buffer.peekNext());
         assertNull(buffer.readNext());
-    };
+    }
+
+    ;
 
     // peekPrev() & readPrev() should not read into head when buffer is full
     @Test
-//    @Order(5)
-    public void testReadBackwardOperationsDoNotReadIntoHeadWhenBufferIsFull(){
-        fill(buffer,1,10,DATA_PREFIX);
-        skipBackward(buffer, 10);
+    public void testReadBackwardOperationsDoNotReadIntoHeadWhenBufferIsFull() {
+        fill(buffer, 1, 10, DATA_PREFIX);
+        skipBackward(buffer, 9);
         assertNull(buffer.peekPrev());
         assertNull(buffer.readPrev());
     }
 
     // during offerNext(), head jumps to 0 from N-1 when overflow occurs. tail starts shifting one position in forward direction
     @Test
-//    @Order(5)
-    public void testOfferNextStartsOverwritingFromStartOfBuffer(){
-        fill(buffer,1,10,DATA_PREFIX);
-        assertEquals(DATA_PREFIX+10,buffer.peekPrev());
+    public void testOfferNextStartsOverwritingFromStartOfBuffer() {
+        fill(buffer, 1, 10, DATA_PREFIX);
+        assertEquals(DATA_PREFIX + 9, buffer.peekPrev());
 
-        fill(buffer, 11,1,DATA_PREFIX);
-        assertEquals(DATA_PREFIX+11,buffer.peekPrev());
-        skipBackward(buffer,9);
-        assertEquals(DATA_PREFIX+2, buffer.readPrev());
+        fill(buffer, 11, 1, DATA_PREFIX);
+        assertEquals(DATA_PREFIX + 10, buffer.peekPrev());
+        skipBackward(buffer, 8);
+        assertEquals(DATA_PREFIX + 2, buffer.readPrev());
         assertNull(buffer.peekPrev());
         assertNull(buffer.readPrev());
     }
 
     // during offerNext(), once in overwriting mode, tail keeps moving in forward direction on every write
+    @Test
+    public void testOfferNextKeepsShiftingTailWhenOverwriting() {
+        int startSequence = 1;
+        int elementCount;
+        fill(buffer, startSequence, elementCount = 10, DATA_PREFIX);
+
+        int elementsToReadBackToReachBeforeTail = 8;
+        for (int i = 1; i <= 9; i++) {
+            fill(buffer, startSequence += elementCount, elementCount = 1, DATA_PREFIX);
+            skipBackward(buffer, elementsToReadBackToReachBeforeTail);
+            assertEquals(DATA_PREFIX + (startSequence - (elementsToReadBackToReachBeforeTail + 1)), buffer.readPrev());
+            assertNull(buffer.peekPrev());
+            assertNull(buffer.readPrev());
+            skipForward(buffer, elementsToReadBackToReachBeforeTail + 1);
+        }
+    }
 
     // during offerPrev(), tail jumps from 0 to N-1
+    @Test
+    public void testOfferPrevShiftsTailToEndOfBufferFrom0() {
+        int numOfForwardWritesToPositionTailAtEndOfBuffer = 19;
+        int startSequence = 1;
+        fill(buffer, startSequence, numOfForwardWritesToPositionTailAtEndOfBuffer, DATA_PREFIX);
+
+        //check if tail is positioned at end of buffer
+        skipBackward(buffer, 8);
+        assertEquals(DATA_PREFIX + 10, buffer.peekPrev());
+        skipBackward(buffer, 1);
+        assertNull(buffer.peekPrev());
+
+        //force tail jump from N-1 to 0
+        skipForward(buffer, 9);
+        fill(buffer, startSequence += numOfForwardWritesToPositionTailAtEndOfBuffer, 1, DATA_PREFIX);
+
+        //check if tail is positioned at start of buffer
+        skipBackward(buffer, 8);
+        assertEquals(DATA_PREFIX + 11, buffer.peekPrev());
+        skipBackward(buffer, 1);
+        assertNull(buffer.peekPrev());
+
+    }
 
     // during offerPrev(), tail moves in backward direction on every write. head remains at current position until overwrite occurs
 
@@ -145,4 +205,11 @@ public class PaginationRingBufferTests {
             buffer.readPrev();
         }
     }
+
+    private void skipForward(IPaginationRingBuffer<String> buffer, int skipCount) {
+        for (int i = 0; i < skipCount; i++) {
+            buffer.readNext();
+        }
+    }
+
 }

@@ -1,4 +1,4 @@
-package com.gmail.rahulpal21.cache;
+package com.gmail.rahulpal21.cosmospaginator.buffer;
 
 public class AllPagesNotReadException extends Exception {
     public AllPagesNotReadException(String message) {
