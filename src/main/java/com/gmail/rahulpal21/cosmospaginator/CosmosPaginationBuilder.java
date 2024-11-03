@@ -22,11 +22,11 @@ public class CosmosPaginationBuilder<T> {
     private final Class<? super T> type = new TypeToken<T>(getClass()) {
     }.getRawType();
 
-    public CosmosPaginationContext<T> build(IPaginationRingBuffer<List<T>> paginationCache, CosmosContainer container, SqlQuerySpec querySpec) {
+    public CosmosPaginable<T> build(IPaginationRingBuffer<List<T>> paginationCache, CosmosContainer container, SqlQuerySpec querySpec) {
 
         CosmosPagedIterable<T> pagedIterable = (CosmosPagedIterable<T>) container.queryItems(querySpec, new CosmosQueryRequestOptions(), type);
 
-        return new CosmosPaginationContext<T>() {
+        return new CosmosPaginable<T>() {
             private CosmosContainer icontainer = container;
             private SqlQuerySpec iquerySpec = querySpec;
             private Iterator<FeedResponse<T>> pageIteraor = pagedIterable.iterableByPage(pageSize).iterator();

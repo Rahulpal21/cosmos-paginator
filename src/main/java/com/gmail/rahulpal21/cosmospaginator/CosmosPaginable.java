@@ -4,7 +4,7 @@ import java.util.stream.Stream;
 
 /// @author Rahul Pal
 /// Defines the api for consuming cosmos query responses with pagination. It provides provdes methods for navigating pages in either direction.
-public interface CosmosPaginationContext<T> {
+public interface CosmosPaginable<T> {
     ///@return true if more pages exist in forward direction
     boolean hasNext();
     ///@return true if more pages exist in backward direction
