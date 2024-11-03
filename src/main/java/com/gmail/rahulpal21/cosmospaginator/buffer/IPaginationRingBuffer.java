@@ -60,6 +60,8 @@ public interface IPaginationRingBuffer<T> {
      */
     T readPrev();
 
+    T readCurrent();
+
     /**
      * returns length/size of the buffer. i.e, the maximum number of elements buffer can hold before it starts overwriting.
      * @return length of the internal buffer

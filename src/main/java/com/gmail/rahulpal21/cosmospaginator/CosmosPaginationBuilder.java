@@ -5,61 +5,98 @@ import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.models.FeedResponse;
 import com.azure.cosmos.models.SqlQuerySpec;
 import com.azure.cosmos.util.CosmosPagedIterable;
+import com.gmail.rahulpal21.cosmospaginator.buffer.AllPagesNotReadException;
+import com.gmail.rahulpal21.cosmospaginator.buffer.IPaginationRingBuffer;
 import com.google.common.collect.EvictingQueue;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Iterator;
+import java.util.List;
+import java.util.Stack;
 import java.util.stream.Stream;
 
 public class CosmosPaginationBuilder<T> {
 
-    private final CosmosContainer container;
-    private final SqlQuerySpec querySpec;
     private int pageSize = 10; //TODO move to default properties or constants
     private int cacheSize = 10; //TODO move to default properties or constants
-    private final Class<? super T> type = new TypeToken<T>() {
+    private final Class<? super T> type = new TypeToken<T>(getClass()) {
     }.getRawType();
-    private Iterator<? extends FeedResponse<? super T>> pages;
 
-    public CosmosPaginationBuilder(CosmosContainer container, SqlQuerySpec querySpec) {
-        this.container = container;
-        this.querySpec = querySpec;
-    }
+    public CosmosPaginationContext<T> build(IPaginationRingBuffer<List<T>> paginationCache, CosmosContainer container, SqlQuerySpec querySpec) {
 
-    public CosmosPaginationContext<T> buildAndQuery() {
-
-        CosmosPagedIterable<? super T> pagedIterable = container.queryItems(querySpec, new CosmosQueryRequestOptions(), type);
+        CosmosPagedIterable<T> pagedIterable = (CosmosPagedIterable<T>) container.queryItems(querySpec, new CosmosQueryRequestOptions(), type);
 
         return new CosmosPaginationContext<T>() {
-            private Iterator<? extends FeedResponse<? super T>> pages = pagedIterable.iterableByPage(pageSize).iterator();
-            private EvictingQueue<T[]> ringBuffer = EvictingQueue.create(cacheSize);
+            private CosmosContainer icontainer = container;
+            private SqlQuerySpec iquerySpec = querySpec;
+            private Iterator<FeedResponse<T>> pageIteraor = pagedIterable.iterableByPage(pageSize).iterator();
+            private IPaginationRingBuffer<List<T>> ipaginationCache = paginationCache;
+            private Stack<String> tokens = new Stack<>();
+            private EvictingQueue<String> tempTokens = EvictingQueue.create(paginationCache.getLength());
+
+            private boolean checkHasNextThroughCache() {
+                if (ipaginationCache.peekNext() != null) {
+                    return true;
+                }
+                return pageIteraor.hasNext();
+            }
+
+            private boolean checkHasPrevThroughCache() {
+                if (ipaginationCache.peekPrev() != null) {
+                    return true;
+                }
+                return false;
+            }
+
+            private FeedResponse<T> enqueueToken(FeedResponse<T> page) {
+                tokens.push(page.getContinuationToken());
+                return page;
+            }
+
+            private List<T> saveTokenToTemp(List<T> page) {
+                tempTokens.offer(tokens.pop());
+                return page;
+            }
 
             @Override
             public boolean hasNext() {
-                return pages.hasNext();
+                return checkHasNextThroughCache();
             }
 
             @Override
             public boolean hasPrev() {
-                return false;
+                return checkHasPrevThroughCache();
             }
 
             @Override
-            public Stream<? super T> getNextPage() {
-                if(!hasNext()) {
-                    return Stream.empty();
+            public Stream<T> next() {
+                if (ipaginationCache.peekNext() != null) {
+                    return ipaginationCache.readNext().stream();
                 }
-                T[] pageData = (T[]) pages.next().getElements().stream().toArray();
-                ringBuffer.offer(pageData);
-                return Stream.of(pageData);
+
+                if (pageIteraor.hasNext()) {
+                    try {
+                        return ipaginationCache.offerNext(enqueueToken(pageIteraor.next()).getElements().stream().toList()).stream();
+                    } catch (AllPagesNotReadException e) {
+                        //TODO log error
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                return Stream.empty();
             }
 
             @Override
-            public Stream<T> getPrevPage() {
-                if(ringBuffer.isEmpty()){
+            public Stream<T> prev() {
+                if(tokens.empty()){
                     return Stream.empty();
                 }
-                return Stream.of(ringBuffer.poll());
+                if (paginationCache.peekPrev() != null) {
+                    return saveTokenToTemp(paginationCache.readPrev()).stream();
+                }
+//                container.
+//                paginationCache.offerPrev()
+                return Stream.empty();
             }
 
             @Override

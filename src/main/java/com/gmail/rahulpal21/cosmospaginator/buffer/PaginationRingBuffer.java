@@ -116,6 +116,11 @@ public class PaginationRingBuffer<T> implements IPaginationRingBuffer<T> {
     }
 
     @Override
+    public T readCurrent() {
+        return cursor != -1 ? ringBuffer[cursor] : null;
+    }
+
+    @Override
     public int getLength() {
         return ringBuffer.length;
     }
