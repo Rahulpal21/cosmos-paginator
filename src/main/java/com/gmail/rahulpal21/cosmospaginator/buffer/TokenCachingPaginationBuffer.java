@@ -67,9 +67,11 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
             return paginationBuffer.readNext().stream();
         }
 
-        if (!tokenStack.isEmpty()) {
-            pageIterator = cosmosPagedIterable.iterableByPage(tokenStack.pop(), pageSize).iterator();
+        if (!tokenRestoreStack.isEmpty()) {
+            //TODO forward navigation shouldnt need recreating pageiterator each time
+            pageIterator = cosmosPagedIterable.iterableByPage(tokenRestoreStack.peek(), pageSize).iterator();
         } else {
+            //initial read only
             pageIterator = cosmosPagedIterable.iterableByPage(pageSize).iterator();
         }
 
@@ -77,7 +79,10 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
             try {
                 FeedResponse<T> next = pageIterator.next();
                 List<T> elements = paginationBuffer.offerNext(next.getElements().stream().toList());
-                tokenStack.push(next.getContinuationToken());
+                if(!tokenRestoreStack.isEmpty()){
+                    tokenStack.push(tokenRestoreStack.pop());
+                }
+                tokenRestoreStack.push(next.getContinuationToken());
                 return elements.stream();
             } catch (AllPagesNotReadException e) {
                 throw new RuntimeException(e);

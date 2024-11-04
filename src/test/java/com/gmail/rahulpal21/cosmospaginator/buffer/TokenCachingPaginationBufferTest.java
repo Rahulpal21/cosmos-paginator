@@ -33,7 +33,8 @@ class TokenCachingPaginationBufferTest {
 
     @BeforeEach
     public void setupEach() {
-        paginationBuffer = new TokenCachingPaginationBuffer<>(new PaginationRingBuffer<>(10, new TypeToken<List<TestData>>(getClass()) {}.getRawType()),container, querySpec, 10, TestData.class);
+        paginationBuffer = new TokenCachingPaginationBuffer<>(new PaginationRingBuffer<>(10, new TypeToken<List<TestData>>(getClass()) {
+        }.getRawType()), container, querySpec, 10, TestData.class);
     }
 
     @Test
@@ -43,10 +44,38 @@ class TokenCachingPaginationBufferTest {
         assertEquals(10, page.size());
         assertEquals("1", page.getFirst().getId());
         assertEquals("10", page.getLast().getId());
+
+        //should return false when all pages are consumed
+        for (int i = 0; i < 9; i++) {
+            //out of 10 pages, one is read already, remaining 9 are read in this loop
+            assertTrue(paginationBuffer.hasNext());
+            assertEquals(10, paginationBuffer.next().toList().size());
+        }
+
+        //there should be no more pages
+        assertFalse(paginationBuffer.hasNext());
     }
 
     @Test
     void hasPrev() {
+        assertFalse(paginationBuffer.hasPrev());
+
+        //move the cursor forward a few positions to allow backward navigation
+        int positions = 5;
+        for (int i = 0; i < 5; i++) {
+            paginationBuffer.next();
+        }
+
+        //should read the penultimate page to the last written/read page in forward direction
+        positions--;
+        for (int i = positions; i > 0; i--) {
+            assertTrue(paginationBuffer.hasPrev());
+            List<TestData> page = (List<TestData>) paginationBuffer.prev().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+
         assertFalse(paginationBuffer.hasPrev());
     }
 
