@@ -6,8 +6,7 @@ import java.lang.reflect.Array;
 
 public class PaginationRingBuffer<T> implements IPaginationRingBuffer<T> {
     private final T[] ringBuffer;
-    Class<? super T> type = new TypeToken<T>(getClass()) {
-    }.getRawType();
+    Class<? super T> type;
     private final int length;
     private final int endIndex;
 
@@ -32,7 +31,8 @@ public class PaginationRingBuffer<T> implements IPaginationRingBuffer<T> {
     private int cursor;
 
 
-    public PaginationRingBuffer(int length) {
+    public PaginationRingBuffer(int length, Class<? super T> type) {
+        this.type = type;
         this.ringBuffer = (T[]) Array.newInstance(type, length);
         this.length = ringBuffer.length;
         this.endIndex = this.length - 1;

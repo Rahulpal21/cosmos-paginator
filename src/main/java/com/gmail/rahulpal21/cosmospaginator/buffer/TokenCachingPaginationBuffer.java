@@ -16,8 +16,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Stream;
 
 public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
-    private final Class<? super T> type = new TypeToken<T>(getClass()) {
-    }.getRawType();
+    private final Class<? super T> type;
     private final IPaginationRingBuffer<List<T>> paginationBuffer;
     private final Deque<String> tokenRestoreStack;
     private final Stack<String> tokenStack;
@@ -29,7 +28,8 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
 
     private int pageSize;
 
-    public TokenCachingPaginationBuffer(IPaginationRingBuffer<List<T>> paginationBuffer, CosmosContainer container, SqlQuerySpec querySpec, int pageSize) {
+    public TokenCachingPaginationBuffer(IPaginationRingBuffer<List<T>> paginationBuffer, CosmosContainer container, SqlQuerySpec querySpec, int pageSize, Class type) {
+        this.type = type;
         this.paginationBuffer = paginationBuffer;
         this.tokenRestoreStack = new LinkedBlockingDeque<>(paginationBuffer.getLength());
         this.tokenStack = new Stack<>();
@@ -66,7 +66,13 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
             tokenStack.push(tokenRestoreStack.pop());
             return paginationBuffer.readNext().stream();
         }
-        pageIterator = cosmosPagedIterable.iterableByPage(tokenStack.pop(), pageSize).iterator();
+
+        if (!tokenStack.isEmpty()) {
+            pageIterator = cosmosPagedIterable.iterableByPage(tokenStack.pop(), pageSize).iterator();
+        } else {
+            pageIterator = cosmosPagedIterable.iterableByPage(pageSize).iterator();
+        }
+
         if (pageIterator.hasNext()) {
             try {
                 FeedResponse<T> next = pageIterator.next();

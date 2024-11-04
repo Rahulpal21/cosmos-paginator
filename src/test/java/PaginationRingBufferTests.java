@@ -16,7 +16,7 @@ public class PaginationRingBufferTests {
 
     @BeforeEach
     public void setup() {
-        buffer = new PaginationRingBuffer<>(testSize);
+        buffer = new PaginationRingBuffer<>(testSize, String.class);
     }
 
     @Test
