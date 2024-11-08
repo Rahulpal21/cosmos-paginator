@@ -6,7 +6,6 @@ import com.azure.cosmos.models.FeedResponse;
 import com.azure.cosmos.models.SqlQuerySpec;
 import com.azure.cosmos.util.CosmosPagedIterable;
 import com.gmail.rahulpal21.cosmospaginator.CosmosPaginable;
-import com.google.common.reflect.TypeToken;
 
 import java.util.Deque;
 import java.util.Iterator;
@@ -20,6 +19,7 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
     private final IPaginationRingBuffer<List<T>> paginationBuffer;
     private final Deque<String> tokenRestoreStack;
     private final Stack<String> tokenStack;
+    private String nextToken;
     private final CosmosContainer container;
     private final SqlQuerySpec querySpec;
     private Iterator<FeedResponse<T>> pageIterator;
@@ -42,6 +42,7 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
     private void init() {
         cosmosPagedIterable = (CosmosPagedIterable<T>) container.queryItems(querySpec, new CosmosQueryRequestOptions(), type);
         pageIterator = cosmosPagedIterable.iterableByPage(pageSize).iterator();
+        nextToken = "";
     }
 
     @Override
@@ -67,23 +68,19 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
             return paginationBuffer.readNext().stream();
         }
 
-        if (!tokenRestoreStack.isEmpty()) {
-            //TODO forward navigation shouldnt need recreating pageiterator each time
-            pageIterator = cosmosPagedIterable.iterableByPage(tokenRestoreStack.peek(), pageSize).iterator();
-        } else {
-            //initial read only
-            pageIterator = cosmosPagedIterable.iterableByPage(pageSize).iterator();
-        }
-
         if (pageIterator.hasNext()) {
             try {
                 FeedResponse<T> next = pageIterator.next();
-                List<T> elements = paginationBuffer.offerNext(next.getElements().stream().toList());
-                if(!tokenRestoreStack.isEmpty()){
-                    tokenStack.push(tokenRestoreStack.pop());
+                List<T> elements = next.getElements().stream().toList();
+
+                if (!elements.isEmpty()) {
+                    paginationBuffer.offerNext(elements);
+
+                    if(!tokenRestoreStack.isEmpty())tokenStack.push(tokenRestoreStack.pop());
+                    tokenRestoreStack.push(nextToken);
+                    nextToken = next.getContinuationToken();
+                    return elements.stream();
                 }
-                tokenRestoreStack.push(next.getContinuationToken());
-                return elements.stream();
             } catch (AllPagesNotReadException e) {
                 throw new RuntimeException(e);
             }
@@ -94,26 +91,46 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
     @Override
     public Stream<? super T> prev() {
         if (paginationBuffer.peekPrev() != null) {
-            String token = tokenStack.pop();
-            try {
-                tokenRestoreStack.push(token);
-            } catch (IllegalStateException stackFull) {
-                tokenRestoreStack.pop();
-                tokenRestoreStack.push(token);
-            }
+            saveToken();
             return paginationBuffer.readPrev().stream();
         }
+
+        //Continuation token for the prev page to be read is always on the tokenStack
+        //tokenRestoreStack always has the latest page read through next/prev
         if (!tokenStack.isEmpty()) {
-            pageIterator = cosmosPagedIterable.iterableByPage(tokenStack.pop(), pageSize).iterator();
+            //first page is marked with an empty string token
+            if(tokenStack.peek().isEmpty()){
+                //first page
+                pageIterator = cosmosPagedIterable.iterableByPage(pageSize).iterator();
+            }else {
+                pageIterator = cosmosPagedIterable.iterableByPage(tokenStack.peek(), pageSize).iterator();
+            }
+
             try {
                 FeedResponse<T> next = pageIterator.next();
-                tokenStack.push(next.getContinuationToken());
+                // cosmos return continuation token for the next page.
+                // as the next continuation token is already present in tokenRestoreStack,
+                // it's the token that is used to fetch the current page, that needs to be added and not
+                // the one from current cosmos response.
+                saveToken();
                 return paginationBuffer.offerPrev(next.getElements().stream().toList()).stream();
             } catch (AllPagesNotReadException e) {
                 throw new RuntimeException(e);
             }
         }
         return Stream.empty();
+    }
+
+    private void saveToken() {
+        String token = tokenStack.pop();
+        try {
+            tokenRestoreStack.push(token);
+        } catch (IllegalStateException stackFull) {
+            //the stack should behave like an eviciting queue,
+            // hence removing the earliest token from stack and not the latest
+            tokenRestoreStack.removeLast();
+            tokenRestoreStack.push(token);
+        }
     }
 
     @Override
