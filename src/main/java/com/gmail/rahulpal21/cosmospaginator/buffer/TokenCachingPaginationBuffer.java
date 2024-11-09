@@ -27,6 +27,7 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
 
 
     private int pageSize;
+    private boolean continuityBreak;
 
     public TokenCachingPaginationBuffer(IPaginationRingBuffer<List<T>> paginationBuffer, CosmosContainer container, SqlQuerySpec querySpec, int pageSize, Class type) {
         this.type = type;
@@ -68,6 +69,10 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
             return paginationBuffer.readNext().stream();
         }
 
+        if(continuityBreak){
+            pageIterator = cosmosPagedIterable.iterableByPage(tokenRestoreStack.peek(),pageSize).iterator();
+            continuityBreak = false;
+        }
         if (pageIterator.hasNext()) {
             try {
                 FeedResponse<T> next = pageIterator.next();
@@ -130,6 +135,7 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
             // hence removing the earliest token from stack and not the latest
             tokenRestoreStack.removeLast();
             tokenRestoreStack.push(token);
+            continuityBreak = true;
         }
     }
 

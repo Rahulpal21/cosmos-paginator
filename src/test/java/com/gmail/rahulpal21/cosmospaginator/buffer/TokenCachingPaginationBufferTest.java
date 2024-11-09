@@ -83,17 +83,17 @@ class TokenCachingPaginationBufferTest {
     void testNavigationWithBufferOverflow(){
         //buffer is initialized with 10 slots, and collection is also preloaded with 100 elements.
         //fill some more pages for to cause buffer overflow
-        AtomicInteger sequence = new AtomicInteger(101);
-        createItems(container, sequence, 50);
+//        AtomicInteger sequence = new AtomicInteger(101);
+//        createItems(container, sequence, 50);
 
         //traverse all the way to last page (would require 15 calls to next)
         //should return false when all pages are consumed
         for (int i = 1; i <= 15; i++) {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+//            try {
+//                Thread.sleep(2000);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
             assertTrue(paginationBuffer.hasNext());
             List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
             assertEquals(10, page.size());
@@ -114,10 +114,10 @@ class TokenCachingPaginationBufferTest {
         }
         //no more elements in backward direction
         assertFalse(paginationBuffer.hasPrev());
-        assertNull(paginationBuffer.prev());
+        assertTrue(paginationBuffer.prev().toList().isEmpty());
 
         // now it should be possible to navigate in forward direction again.
-        for (int i = 1; i <= 15; i++) {
+        for (int i = 2; i <= 15; i++) {
             assertTrue(paginationBuffer.hasNext());
             List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
             assertEquals(10, page.size());
@@ -184,7 +184,7 @@ class TokenCachingPaginationBufferTest {
         container = database.getContainer(testCollectionName);
         //load test data
         AtomicInteger sequence = new AtomicInteger(1);
-        createItems(container, sequence, 100);
+        createItems(container, sequence, 150);
     }
 
     private static void createItems(CosmosContainer container, AtomicInteger sequence, int count) {
