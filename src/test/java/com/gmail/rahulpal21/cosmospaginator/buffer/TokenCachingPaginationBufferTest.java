@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/// These tests depend on a cosmos instance or emulator provided through application-junit.xml
 class TokenCachingPaginationBufferTest {
     private static final String propertiesFile = "application-junit.yaml";
     private static CosmosClient cosmosClient;
