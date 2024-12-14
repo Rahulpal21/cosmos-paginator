@@ -1,5 +1,6 @@
 package com.gmail.rahulpal21.cosmospaginator.buffer;
 
+import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.models.FeedResponse;
@@ -70,7 +71,7 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
         }
 
         if(continuityBreak){
-            pageIterator = cosmosPagedIterable.iterableByPage(tokenRestoreStack.peek(),pageSize).iterator();
+            pageIterator = cosmosPagedIterable.iterableByPage(nextToken,pageSize).iterator();
             continuityBreak = false;
         }
         if (pageIterator.hasNext()) {
@@ -131,9 +132,9 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
         try {
             tokenRestoreStack.push(token);
         } catch (IllegalStateException stackFull) {
-            //the stack should behave like an eviciting queue,
+            //the stack should behave like an evicting queue,
             // hence removing the earliest token from stack and not the latest
-            tokenRestoreStack.removeLast();
+            nextToken = tokenRestoreStack.removeLast();
             tokenRestoreStack.push(token);
             continuityBreak = true;
         }

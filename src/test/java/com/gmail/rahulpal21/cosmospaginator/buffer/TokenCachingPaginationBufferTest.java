@@ -6,7 +6,6 @@ import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.CosmosDatabase;
 import com.azure.cosmos.models.SqlQuerySpec;
 import com.google.common.reflect.TypeToken;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,115 +30,6 @@ class TokenCachingPaginationBufferTest {
     private SqlQuerySpec querySpec = new SqlQuerySpec("SELECT * FROM c");
     private TokenCachingPaginationBuffer<TestData> paginationBuffer;
     private static CosmosContainer container;
-
-    @BeforeEach
-    public void setupEach() {
-        paginationBuffer = new TokenCachingPaginationBuffer<>(new PaginationRingBuffer<>(10, new TypeToken<List<TestData>>(getClass()) {
-        }.getRawType()), container, querySpec, 10, TestData.class);
-    }
-
-    @Test
-    void hasNext() {
-        assertTrue(paginationBuffer.hasNext());
-        List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
-        assertEquals(10, page.size());
-        assertEquals("1", page.getFirst().getId());
-        assertEquals("10", page.getLast().getId());
-
-        //should return false when all pages are consumed
-        for (int i = 0; i < 9; i++) {
-            //out of 10 pages, one is read already, remaining 9 are read in this loop
-            assertTrue(paginationBuffer.hasNext());
-            assertEquals(10, paginationBuffer.next().toList().size());
-        }
-
-        //there should be no more pages
-        assertFalse(paginationBuffer.hasNext());
-    }
-
-    @Test
-    void hasPrev() {
-        assertFalse(paginationBuffer.hasPrev());
-
-        //move the cursor forward a few positions to allow backward navigation
-        int positions = 5;
-        for (int i = 0; i < 5; i++) {
-            paginationBuffer.next();
-        }
-
-        //should read the penultimate page to the last written/read page in forward direction
-        positions--;
-        for (int i = positions; i > 0; i--) {
-            assertTrue(paginationBuffer.hasPrev());
-            List<TestData> page = (List<TestData>) paginationBuffer.prev().toList();
-            assertEquals(10, page.size());
-            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
-            assertEquals(String.valueOf(i * 10), page.getLast().getId());
-        }
-
-        assertFalse(paginationBuffer.hasPrev());
-    }
-
-    @Test
-    void testNavigationWithBufferOverflow(){
-        //buffer is initialized with 10 slots, and collection is also preloaded with 100 elements.
-        //fill some more pages for to cause buffer overflow
-//        AtomicInteger sequence = new AtomicInteger(101);
-//        createItems(container, sequence, 50);
-
-        //traverse all the way to last page (would require 15 calls to next)
-        //should return false when all pages are consumed
-        for (int i = 1; i <= 15; i++) {
-//            try {
-//                Thread.sleep(2000);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
-            assertTrue(paginationBuffer.hasNext());
-            List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
-            assertEquals(10, page.size());
-            assertEquals(String.valueOf((i*10)-9), page.getFirst().getId());
-            assertEquals(String.valueOf(i*10), page.getLast().getId());
-        }
-        //no more elements in forward direction
-        assertFalse(paginationBuffer.hasNext());
-        assertTrue(paginationBuffer.next().toList().isEmpty());
-
-        //now traversing all the way back to first page (should need 14 calls to prev)
-        for (int i = 14; i > 0; i--) {
-            assertTrue(paginationBuffer.hasPrev());
-            List<TestData> page = (List<TestData>) paginationBuffer.prev().toList();
-            assertEquals(10, page.size());
-            assertEquals(String.valueOf((i*10)-9), page.getFirst().getId());
-            assertEquals(String.valueOf(i*10), page.getLast().getId());
-        }
-        //no more elements in backward direction
-        assertFalse(paginationBuffer.hasPrev());
-        assertTrue(paginationBuffer.prev().toList().isEmpty());
-
-        // now it should be possible to navigate in forward direction again.
-        for (int i = 2; i <= 15; i++) {
-            assertTrue(paginationBuffer.hasNext());
-            List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
-            assertEquals(10, page.size());
-            assertEquals(String.valueOf((i*10)-9), page.getFirst().getId());
-            assertEquals(String.valueOf(i*10), page.getLast().getId());
-        }
-
-        //no more elements in forward direction
-        assertFalse(paginationBuffer.hasNext());
-        assertNull(paginationBuffer.next());
-
-    }
-
-    @Test
-    void next() {
-
-    }
-
-    @Test
-    void prev() {
-    }
 
     @BeforeAll
     public static void setup() {
@@ -176,6 +66,18 @@ class TokenCachingPaginationBufferTest {
         } else {
             throw new RuntimeException("test database could not be created");
         }
+    }
+
+    @BeforeEach
+    public void setupEach() {
+        //cleanup if older db exists
+        CosmosDatabase database = cosmosClient.getDatabase(testDBName);
+
+        //recreate collection if already exists
+        try {
+            database.getContainer(testCollectionName).delete();
+        } catch (Exception e) {
+        }
 
         //create collection
         String pkeyPath = "/id";
@@ -183,9 +85,151 @@ class TokenCachingPaginationBufferTest {
             throw new RuntimeException("test collection could not be created");
         }
         container = database.getContainer(testCollectionName);
-        //load test data
+    }
+
+    @Test
+    void hasNext() {
+        createAndInitializeBuffer(100);
+
+        assertTrue(paginationBuffer.hasNext());
+        List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
+        assertEquals(10, page.size());
+        assertEquals("1", page.getFirst().getId());
+        assertEquals("10", page.getLast().getId());
+
+        //should return false when all pages are consumed
+        for (int i = 0; i < 9; i++) {
+            //out of 10 pages, one is read already, remaining 9 are read in this loop
+            assertTrue(paginationBuffer.hasNext());
+            assertEquals(10, paginationBuffer.next().toList().size());
+        }
+
+        //there should be no more pages
+        assertFalse(paginationBuffer.hasNext());
+    }
+
+    @Test
+    void hasPrev() {
+        createAndInitializeBuffer(100);
+
+        assertFalse(paginationBuffer.hasPrev());
+
+        //move the cursor forward a few positions to allow backward navigation
+        int positions = 5;
+        for (int i = 0; i < 5; i++) {
+            paginationBuffer.next();
+        }
+
+        //should read the penultimate page to the last written/read page in forward direction
+        positions--;
+        for (int i = positions; i > 0; i--) {
+            assertTrue(paginationBuffer.hasPrev());
+            List<TestData> page = (List<TestData>) paginationBuffer.prev().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+
+        assertFalse(paginationBuffer.hasPrev());
+    }
+
+    @Test
+    void testNavigationWithBufferOverflow() {
+        createAndInitializeBuffer(150);
+
+        //traverse all the way to last page (would require 15 calls to next)
+        //should return false when all pages are consumed
+        for (int i = 1; i <= 15; i++) {
+            assertTrue(paginationBuffer.hasNext());
+            List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+        //no more elements in forward direction
+        assertFalse(paginationBuffer.hasNext());
+        assertTrue(paginationBuffer.next().toList().isEmpty());
+
+        //now traversing all the way back to first page (should need 14 calls to prev)
+        for (int i = 14; i > 0; i--) {
+            assertTrue(paginationBuffer.hasPrev());
+            List<TestData> page = (List<TestData>) paginationBuffer.prev().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+        //no more elements in backward direction
+        assertFalse(paginationBuffer.hasPrev());
+        assertTrue(paginationBuffer.prev().toList().isEmpty());
+
+        // now it should be possible to navigate in forward direction again.
+        for (int i = 2; i <= 15; i++) {
+            assertTrue(paginationBuffer.hasNext());
+            List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+
+        //no more elements in forward direction
+        assertFalse(paginationBuffer.hasNext());
+        assertTrue(paginationBuffer.next().toList().isEmpty());
+
+    }
+
+    @Test
+    void testSwitchingBetweenForwardAndBackwardWithoutFullTraversal() {
+        createAndInitializeBuffer(100);
+
+        //traverse forward mid-way
+        for (int i = 1; i <= 5; i++) {
+            assertTrue(paginationBuffer.hasNext());
+            List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+
+        //now traversing backward few places
+        for (int i = 4; i > 2; i--) {
+            assertTrue(paginationBuffer.hasPrev());
+            List<TestData> page = (List<TestData>) paginationBuffer.prev().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+
+        // now it should be possible to navigate in forward direction again till the end.
+        for (int i = 4; i <= 10; i++) {
+            assertTrue(paginationBuffer.hasNext());
+            List<TestData> page = (List<TestData>) paginationBuffer.next().toList();
+            assertEquals(10, page.size());
+            assertEquals(String.valueOf((i * 10) - 9), page.getFirst().getId());
+            assertEquals(String.valueOf(i * 10), page.getLast().getId());
+        }
+
+        //no more elements in forward direction
+        assertFalse(paginationBuffer.hasNext());
+        assertTrue(paginationBuffer.next().toList().isEmpty());
+
+    }
+
+    @Test
+    void next() {
+
+    }
+
+    @Test
+    void prev() {
+    }
+
+    private void createAndInitializeBuffer(int testDatasetSize) {
+        //load test data in container
         AtomicInteger sequence = new AtomicInteger(1);
-        createItems(container, sequence, 150);
+        createItems(container, sequence, testDatasetSize);
+
+        paginationBuffer = new TokenCachingPaginationBuffer<>(new PaginationRingBuffer<>(10, new TypeToken<List<TestData>>(getClass()) {
+        }.getRawType()), container, querySpec, 10, TestData.class);
     }
 
     private static void createItems(CosmosContainer container, AtomicInteger sequence, int count) {
@@ -194,7 +238,7 @@ class TokenCachingPaginationBufferTest {
         }
     }
 
-//    @AfterAll
+    //    @AfterAll
     public static void tearDown() {
         cosmosClient.getDatabase(testDBName).delete();
         cosmosClient.close();
