@@ -9,16 +9,15 @@ import com.google.common.reflect.TypeToken;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.CosmosDBEmulatorContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.yaml.snakeyaml.Yaml;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.*;
-
 /// These tests depend on a cosmos instance or emulator provided through application-junit.xml
 class TokenCachingPaginationBufferTest {
     private static final String propertiesFile = "application-junit.yaml";
@@ -31,8 +30,16 @@ class TokenCachingPaginationBufferTest {
     private TokenCachingPaginationBuffer<TestData> paginationBuffer;
     private static CosmosContainer container;
 
+/*
+    private static CosmosDBEmulatorContainer cosmos = new CosmosDBEmulatorContainer(
+            DockerImageName.parse("mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest")
+    );
+*/
+
     @BeforeAll
     public static void setup() {
+//        bootstrapCosmosEmulator();
+
         //read properties
         Yaml yaml = new Yaml();
         Map<String, Object> properties;
@@ -66,6 +73,10 @@ class TokenCachingPaginationBufferTest {
         } else {
             throw new RuntimeException("test database could not be created");
         }
+    }
+
+    private static void bootstrapCosmosEmulator() {
+//        cosmos.start();
     }
 
     @BeforeEach
