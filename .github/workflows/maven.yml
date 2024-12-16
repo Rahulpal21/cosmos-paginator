@@ -36,6 +36,12 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+    
+    - name: Donload emulator certificate
+      run: |
+        curl --insecure https://localhost:8081/_explorer/emulator.pem > /usr/local/share/ca-certificates/emulatorcert.crt
+        sudo update-ca-certificates
+      
     - name: Build with Maven
       run: mvn -B package --file pom.xml
 
