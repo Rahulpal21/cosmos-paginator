@@ -39,11 +39,12 @@ jobs:
     
     - name: Donload emulator certificate
       run: |
-        curl --insecure https://localhost:8081/_explorer/emulator.pem > /usr/local/share/ca-certificates/emulatorcert.crt
-        sudo update-ca-certificates
+        curl --insecure https://localhost:8081/_explorer/emulator.pem > ~/emulatorcert.crt
+        pwd
+        keytool -importcert -file ./emulatorcert.crt -keystore emulatorcert.jks -alias "emulator" -storepass changeit
       
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -B package --file pom.xml -Djavax.net.ssl.trustStore=./emulatorcert.jks -Djavax.net.ssl.trustStorePassword=changeit
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
