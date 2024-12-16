@@ -39,7 +39,7 @@ jobs:
     
     - name: Donload emulator certificate
       run: |
-        curl --insecure https://localhost:8081/_explorer/emulator.pem > ~/emulatorcert.crt
+        curl --insecure "https://localhost:8081/_explorer/emulator.pem" > ~/emulatorcert.crt
         pwd
         keytool -importcert -file ./emulatorcert.crt -keystore emulatorcert.jks -alias "emulator" -storepass changeit
       
