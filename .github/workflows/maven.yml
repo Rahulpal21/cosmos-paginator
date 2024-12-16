@@ -37,9 +37,8 @@ jobs:
         distribution: 'temurin'
         cache: maven
     
-    - name: Donload emulator certificate
-      run: |
-        curl --insecure -v "https://localhost:8081/_explorer/emulator.pem"
+    - name: Download emulator certificate
+      run: curl -k -v "https://localhost:8081/_explorer/emulator.pem"
         # pwd
         # keytool -importcert -file ./emulatorcert.crt -keystore emulatorcert.jks -alias "emulator" -storepass changeit
       
