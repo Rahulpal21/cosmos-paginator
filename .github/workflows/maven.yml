@@ -38,7 +38,7 @@ jobs:
         cache: maven
     
     - name: Download emulator certificate
-      run: wget --no-check-certificate -O ./emulatorcert.jks "https://localhost:8081/_explorer/emulator.pem"
+      run: wget --no-check-certificate -O ./emulatorcert.jks https://localhost:8081/_explorer/emulator.pem
         # curl -k -v "https://localhost:8081/_explorer/emulator.pem"
         # pwd
         # keytool -importcert -file ./emulatorcert.crt -keystore emulatorcert.jks -alias "emulator" -storepass changeit
