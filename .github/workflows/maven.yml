@@ -39,8 +39,7 @@ jobs:
     
     - name: Donload emulator certificate
       run: |
-        docker ps
-        curl --insecure "https://localhost:8081/_explorer/emulator.pem"
+        curl --insecure -v "https://localhost:8081/_explorer/emulator.pem"
         # pwd
         # keytool -importcert -file ./emulatorcert.crt -keystore emulatorcert.jks -alias "emulator" -storepass changeit
       
