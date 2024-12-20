@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Service containers to run with `runner-job`
-    services:
+#    services:
       # Label used to access the service container
 #      cosmos-emulator:
         # Docker Hub image
