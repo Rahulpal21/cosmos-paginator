@@ -241,6 +241,7 @@ class TokenCachingPaginationBufferTest {
         AtomicInteger sequence = new AtomicInteger(1);
         createItems(container, sequence, testDatasetSize);
         paginationBuffer = new CosmosPaginationBuilder<TestData>().build(container, querySpec, TestData.class);
+        paginationBuffer.init();
 
     }
 
