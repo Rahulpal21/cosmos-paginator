@@ -5,6 +5,8 @@ import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.CosmosDatabase;
 import com.azure.cosmos.models.SqlQuerySpec;
+import com.gmail.rahulpal21.cosmospaginator.CosmosPaginable;
+import com.gmail.rahulpal21.cosmospaginator.CosmosPaginationBuilder;
 import com.google.common.reflect.TypeToken;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +29,7 @@ class TokenCachingPaginationBufferTest {
     private static String testDBName;
     private static String testCollectionName;
     private SqlQuerySpec querySpec = new SqlQuerySpec("SELECT * FROM c");
-    private TokenCachingPaginationBuffer<TestData> paginationBuffer;
+    private CosmosPaginable<TestData> paginationBuffer;
     private static CosmosContainer container;
 
 /*
@@ -238,9 +240,8 @@ class TokenCachingPaginationBufferTest {
         //load test data in container
         AtomicInteger sequence = new AtomicInteger(1);
         createItems(container, sequence, testDatasetSize);
+        paginationBuffer = new CosmosPaginationBuilder<TestData>().build(container, querySpec, TestData.class);
 
-        paginationBuffer = new TokenCachingPaginationBuffer<>(new PaginationRingBuffer<>(10, new TypeToken<List<TestData>>(getClass()) {
-        }.getRawType()), container, querySpec, 10, TestData.class);
     }
 
     private static void createItems(CosmosContainer container, AtomicInteger sequence, int count) {
