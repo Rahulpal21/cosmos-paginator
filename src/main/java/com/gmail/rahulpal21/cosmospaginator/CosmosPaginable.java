@@ -17,4 +17,5 @@ public interface CosmosPaginable<T> {
     long getPageCount();
     /// Resets the context to first page
     void reset();
+    void init();
 }

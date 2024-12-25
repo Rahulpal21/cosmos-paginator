@@ -38,10 +38,11 @@ public class TokenCachingPaginationBuffer<T> implements CosmosPaginable<T> {
         this.container = container;
         this.querySpec = querySpec;
         this.pageSize = pageSize;
-        init();
+//        init();
     }
 
-    private void init() {
+    @Override
+    public void init() {
         cosmosPagedIterable = (CosmosPagedIterable<T>) container.queryItems(querySpec, new CosmosQueryRequestOptions(), type);
         pageIterator = cosmosPagedIterable.iterableByPage(pageSize).iterator();
         nextToken = "";
