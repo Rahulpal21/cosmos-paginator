@@ -5,20 +5,21 @@ import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.CosmosDatabase;
 import com.azure.cosmos.models.SqlQuerySpec;
+import com.gmail.rahulpal21.cosmospaginator.CosmosPaginable;
+import com.gmail.rahulpal21.cosmospaginator.CosmosPaginationBuilder;
 import com.google.common.reflect.TypeToken;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.CosmosDBEmulatorContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.yaml.snakeyaml.Yaml;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.*;
-
 /// These tests depend on a cosmos instance or emulator provided through application-junit.xml
 class TokenCachingPaginationBufferTest {
     private static final String propertiesFile = "application-junit.yaml";
@@ -28,11 +29,19 @@ class TokenCachingPaginationBufferTest {
     private static String testDBName;
     private static String testCollectionName;
     private SqlQuerySpec querySpec = new SqlQuerySpec("SELECT * FROM c");
-    private TokenCachingPaginationBuffer<TestData> paginationBuffer;
+    private CosmosPaginable<TestData> paginationBuffer;
     private static CosmosContainer container;
+
+/*
+    private static CosmosDBEmulatorContainer cosmos = new CosmosDBEmulatorContainer(
+            DockerImageName.parse("mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest")
+    );
+*/
 
     @BeforeAll
     public static void setup() {
+//        bootstrapCosmosEmulator();
+
         //read properties
         Yaml yaml = new Yaml();
         Map<String, Object> properties;
@@ -66,6 +75,10 @@ class TokenCachingPaginationBufferTest {
         } else {
             throw new RuntimeException("test database could not be created");
         }
+    }
+
+    private static void bootstrapCosmosEmulator() {
+//        cosmos.start();
     }
 
     @BeforeEach
@@ -227,9 +240,9 @@ class TokenCachingPaginationBufferTest {
         //load test data in container
         AtomicInteger sequence = new AtomicInteger(1);
         createItems(container, sequence, testDatasetSize);
+        paginationBuffer = new CosmosPaginationBuilder<TestData>().build(container, querySpec, TestData.class);
+        paginationBuffer.init();
 
-        paginationBuffer = new TokenCachingPaginationBuffer<>(new PaginationRingBuffer<>(10, new TypeToken<List<TestData>>(getClass()) {
-        }.getRawType()), container, querySpec, 10, TestData.class);
     }
 
     private static void createItems(CosmosContainer container, AtomicInteger sequence, int count) {
